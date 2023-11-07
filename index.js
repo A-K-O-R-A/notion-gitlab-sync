@@ -7,44 +7,54 @@ https://github.com/makenotion/notion-sdk-js/blob/ba873383d5416405798c66d0b47fed3
 */
 
 const { Client } = require("@notionhq/client")
+const { Gitlab } = require("@gitbeaker/rest")
+const api = new Gitlab({
+    token: process.env.GITLAB_TOKEN,
+});
 const dotenv = require("dotenv")
-const { Octokit } = require("octokit")
+const { default: fetch } = require("node-fetch");
 const _ = require("lodash")
 
 dotenv.config()
-const octokit = new Octokit({ auth: process.env.GITHUB_KEY })
+/*
+const gitlab = new Gitlab({
+    host: 'http://gitlab.com',
+    token: process.env.GITLAB_TOKEN,
+});
+*/
+
 const notion = new Client({ auth: process.env.NOTION_KEY })
 
 const databaseId = process.env.NOTION_DATABASE_ID
 const OPERATION_BATCH_SIZE = 10
 
 /**
- * Local map to store  GitHub issue ID to its Notion pageId.
+ * Local map to store  GitLab issue ID to its Notion pageId.
  * { [issueId: string]: string }
  */
-const gitHubIssuesIdToNotionPageId = {}
+const gitLabIssuesIdToNotionPageId = {}
 
 /**
  * Initialize local data store.
- * Then sync with GitHub.
+ * Then sync with GitLab.
  */
-setInitialGitHubToNotionIdMap().then(syncNotionDatabaseWithGitHub)
+setInitialGitLabToNotionIdMap().then(syncNotionDatabaseWithGitLab)
 
 /**
  * Get and set the initial data store with issues currently in the database.
  */
-async function setInitialGitHubToNotionIdMap() {
+async function setInitialGitLabToNotionIdMap() {
     const currentIssues = await getIssuesFromNotionDatabase()
     for (const { pageId, issueNumber } of currentIssues) {
-        gitHubIssuesIdToNotionPageId[issueNumber] = pageId
+        gitLabIssuesIdToNotionPageId[issueNumber] = pageId
     }
 }
 
-async function syncNotionDatabaseWithGitHub() {
-    // Get all issues currently in the provided GitHub repository.
-    console.log("\nFetching issues from GitHub repository...")
-    const issues = await getGitHubIssuesForRepository()
-    console.log(`Fetched ${issues.length} issues from GitHub repository.`)
+async function syncNotionDatabaseWithGitLab() {
+    // Get all issues currently in the provided GitLab repository.
+    console.log("\nFetching issues from GitLab repository...")
+    const issues = await getGitLabIssuesForRepository()
+    console.log(`Fetched ${issues.length} issues from GitLab repository.`)
 
     // Group issues into those that need to be created or updated in the Notion database.
     const { pagesToCreate, pagesToUpdate } = getNotionOperations(issues)
@@ -58,7 +68,7 @@ async function syncNotionDatabaseWithGitHub() {
     await updatePages(pagesToUpdate)
 
     // Success!
-    console.log("\n✅ Notion database is synced with GitHub.")
+    console.log("\n✅ Notion database is synced with GitLab.")
 }
 
 /**
@@ -80,7 +90,7 @@ async function getIssuesFromNotionDatabase() {
         }
         cursor = next_cursor
     }
-    console.log(`${pages.length} issues successfully fetched.`)
+    console.log(`${pages.length} issues successfully fetched from Notion.`)
 
     const issues = []
     for (const page of pages) {
@@ -99,15 +109,34 @@ async function getIssuesFromNotionDatabase() {
 }
 
 /**
- * Gets issues from a GitHub repository. Pull requests are omitted.
+ * Gets issues from a GitLab repository. Pull requests are omitted.
  *
  * https://docs.github.com/en/rest/guides/traversing-with-pagination
  * https://docs.github.com/en/rest/reference/issues
  *
  * @returns {Promise<Array<{ number: number, title: string, state: "open" | "closed", comment_count: number, url: string }>>}
  */
-async function getGitHubIssuesForRepository() {
+async function getGitLabIssuesForRepository() {
     const issues = []
+
+    /*
+    let response = await fetch("https://gitlab.com/api/v4/issues", {
+        headers: {
+            'PRIVATE-TOKEN': process.env.GITLAB_TOKEN
+        }
+    });
+
+    console.log("GITLAB", await response.json());
+    */
+
+    let issues2 = await api.Issues.all({
+        projectId: 51934668
+    });
+
+    console.log("GITLAB 2 ", issues2);
+
+
+
     const iterator = octokit.paginate.iterator(octokit.rest.issues.listForRepo, {
         owner: process.env.GITHUB_REPO_OWNER,
         repo: process.env.GITHUB_REPO_NAME,
@@ -133,17 +162,17 @@ async function getGitHubIssuesForRepository() {
 /**
  * Determines which issues already exist in the Notion database.
  *
- * @param {Array<{ number: number, title: string, state: "open" | "closed", comment_count: number, url: string }>} issues
- * @returns {{
- *   pagesToCreate: Array<{ number: number, title: string, state: "open" | "closed", comment_count: number, url: string }>;
+ * @param {Array < { number: number, title: string, state: "open" | "closed", comment_count: number, url: string } >} issues
+        * @returns {{
+            *   pagesToCreate: Array<{ number: number, title: string, state: "open" | "closed", comment_count: number, url: string }>;
  *   pagesToUpdate: Array<{ pageId: string, number: number, title: string, state: "open" | "closed", comment_count: number, url: string }>
  * }}
- */
+        */
 function getNotionOperations(issues) {
     const pagesToCreate = []
     const pagesToUpdate = []
     for (const issue of issues) {
-        const pageId = gitHubIssuesIdToNotionPageId[issue.number]
+        const pageId = gitLabIssuesIdToNotionPageId[issue.number]
         if (pageId) {
             pagesToUpdate.push({
                 ...issue,
@@ -161,8 +190,8 @@ function getNotionOperations(issues) {
  *
  * https://developers.notion.com/reference/post-page
  *
- * @param {Array<{ number: number, title: string, state: "open" | "closed", comment_count: number, url: string }>} pagesToCreate
- */
+ * @param {Array < { number: number, title: string, state: "open" | "closed", comment_count: number, url: string } >} pagesToCreate
+        */
 async function createPages(pagesToCreate) {
     const pagesToCreateChunks = _.chunk(pagesToCreate, OPERATION_BATCH_SIZE)
     for (const pagesToCreateBatch of pagesToCreateChunks) {
@@ -183,8 +212,8 @@ async function createPages(pagesToCreate) {
  *
  * https://developers.notion.com/reference/patch-page
  *
- * @param {Array<{ pageId: string, number: number, title: string, state: "open" | "closed", comment_count: number, url: string }>} pagesToUpdate
- */
+ * @param {Array < { pageId: string, number: number, title: string, state: "open" | "closed", comment_count: number, url: string } >} pagesToUpdate
+        */
 async function updatePages(pagesToUpdate) {
     const pagesToUpdateChunks = _.chunk(pagesToUpdate, OPERATION_BATCH_SIZE)
     for (const pagesToUpdateBatch of pagesToUpdateChunks) {
@@ -205,10 +234,10 @@ async function updatePages(pagesToUpdate) {
 //*========================================================================
 
 /**
- * Returns the GitHub issue to conform to this database's schema properties.
+ * Returns the GitLab issue to conform to this database's schema properties.
  *
  * @param {{ number: number, title: string, state: "open" | "closed", comment_count: number, url: string }} issue
- */
+        */
 function getPropertiesFromIssue(issue) {
     const { title, number, state, comment_count, url } = issue
     return {

@@ -13,9 +13,10 @@
     "author": "Marvin Jacob",
     "license": "MIT",
     "dependencies": {
+        "@gitbeaker/rest": "^39.21.2",
         "@notionhq/client": "2.2.13",
         "dotenv": "16.0.1",
         "lodash": "4.17.21",
-        "octokit": "2.0.3"
+        "node-fetch": "2.7.0"
     }
 }
