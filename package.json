@@ -1,0 +1,21 @@
+{
+    "name": "notion-gitlab-sync",
+    "version": "1.0.0",
+    "description": "Sync GitLab issues with Notion.",
+    "main": "index.js",
+    "engines": {
+        "node": "16.x"
+    },
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "start": ""
+    },
+    "author": "Marvin Jacob",
+    "license": "MIT",
+    "dependencies": {
+        "@notionhq/client": "2.2.13",
+        "dotenv": "16.0.1",
+        "lodash": "4.17.21",
+        "octokit": "2.0.3"
+    }
+}
