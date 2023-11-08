@@ -112,3 +112,17 @@ export interface GitLabLabel {
   priority: number | null;
   is_project_label: boolean;
 }
+
+export interface GitLabMilestone {
+  id: number;
+  iid: number;
+  project_id: number;
+  title: string;
+  description: string;
+  due_date: Date;
+  start_date: Date;
+  state: string;
+  updated_at: Date;
+  created_at: Date;
+  expired: boolean;
+}

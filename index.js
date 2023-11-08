@@ -87,10 +87,6 @@ async function getIssuesFromNotionDatabase() {
   const pages = [];
   let cursor = undefined;
 
-  let db = await notion.databases.retrieve({
-    database_id: DATABASE_ID,
-  });
-
   while (true) {
     const { results, next_cursor } = await notion.databases.query({
       database_id: DATABASE_ID,

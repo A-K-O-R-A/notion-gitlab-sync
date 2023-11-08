@@ -137,6 +137,9 @@ function getPropertiesFromIssue(issue) {
         start: issue.updated_at,
       },
     },
+    tags: {
+      multi_select: issue.labels.map(l => ({ name: l })),
+    },
   };
 
   if (issue.closed_at != null) {
