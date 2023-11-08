@@ -5,9 +5,10 @@
  * @typedef {import("./types/notion.d.ts").NotionPage} NotionPage
  */
 
-const GROUP_ID = 77497647;
-const PROJECT_ID = 51934668;
-const GITLAB_DOMAIN = "gitlab.com";
+const GROUP_ID = process.env.GITLAB_GROUP_ID;
+const PROJECT_ID = process.env.GITLAB_PROJECT_ID;
+const GITLAB_DOMAIN = process.env.GITLAB_DOMAIN;
+const GITLAB_TOKEN = process.env.GITLAB_TOKEN;
 
 const { default: fetch } = require("node-fetch");
 
@@ -32,7 +33,7 @@ async function getGitLabIssuesForRepository() {
       `https://${GITLAB_DOMAIN}/api/v4/projects/${PROJECT_ID}/issues?scope=all&pagination=keyset&sort=asc&page=${page}&per_page=${pageSize}`,
       {
         headers: {
-          "PRIVATE-TOKEN": process.env.GITLAB_TOKEN,
+          "PRIVATE-TOKEN": GITLAB_TOKEN,
         },
       }
     );
@@ -79,7 +80,7 @@ async function getGitLabMilestonesForProject() {
     `https://${GITLAB_DOMAIN}/api/v4/projects/${PROJECT_ID}/milestones`,
     {
       headers: {
-        "PRIVATE-TOKEN": process.env.GITLAB_TOKEN,
+        "PRIVATE-TOKEN": GITLAB_TOKEN,
       },
     }
   );

@@ -15,6 +15,8 @@ https://github.com/makenotion/notion-sdk-js/blob/ba873383d5416405798c66d0b47fed3
 
 const { Client } = require("@notionhq/client");
 const dotenv = require("dotenv");
+dotenv.config();
+
 const _ = require("lodash");
 const {
   getGitLabIssuesForRepository,
@@ -23,7 +25,6 @@ const {
   getGitLabMilestonesForProject,
 } = require("./gitlab.js");
 
-dotenv.config();
 
 const notion = new Client({ auth: process.env.NOTION_KEY });
 
@@ -220,6 +221,23 @@ const availableColors = [
  * @param {Array<GitLabMilestone>} milestones
  */
 async function updateMultiSelectOptions(labels, milestones) {
+  // Delete all tags, otherwise notion will return a 400 code when colors get changed
+  await notion.databases.update({
+    database_id: DATABASE_ID,
+    properties: {
+      tags: {
+        multi_select: {
+          options: [],
+        },
+      },
+      milestones: {
+        multi_select: {
+          options: []
+        },
+      },
+    },
+  });
+
   await notion.databases.update({
     database_id: DATABASE_ID,
     properties: {
