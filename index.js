@@ -7,7 +7,8 @@ https://github.com/makenotion/notion-sdk-js/blob/ba873383d5416405798c66d0b47fed3
 */
 
 /**
- * @typedef {import("./types.d.ts").GitLabIssue} GitLabIssue
+ * @typedef {import("./types/gitlab.d.ts").GitLabIssue} GitLabIssue
+ * @typedef {import("./types/notion.d.ts").NotionPage} NotionPage
  */
 
 const { Client } = require("@notionhq/client");
@@ -19,12 +20,16 @@ dotenv.config();
 
 const notion = new Client({ auth: process.env.NOTION_KEY });
 
-const databaseId = process.env.NOTION_DATABASE_ID;
+const DATABASE_ID = process.env.NOTION_DATABASE_ID;
 const OPERATION_BATCH_SIZE = 10;
+
+const GROUP_ID = 77497647;
+const PROJECT_ID = 51934668;
+const GITLAB_DOMAIN = "gitlab.com";
 
 /**
  * Local map to store  GitLab issue ID to its Notion pageId.
- * { [issueId: string]: string }
+ * @type { [issueId: string]: string }
  */
 const gitLabIssuesIdToNotionPageId = {};
 
@@ -71,11 +76,12 @@ async function syncNotionDatabaseWithGitLab() {
  * @returns {Promise<Array<{ pageId: string, issueNumber: number }>>}
  */
 async function getIssuesFromNotionDatabase() {
+  /** @type {NotionPage[]} */
   const pages = [];
   let cursor = undefined;
   while (true) {
     const { results, next_cursor } = await notion.databases.query({
-      database_id: databaseId,
+      database_id: DATABASE_ID,
       start_cursor: cursor,
     });
     pages.push(...results);
@@ -88,61 +94,41 @@ async function getIssuesFromNotionDatabase() {
 
   const issues = [];
   for (const page of pages) {
-    const issueNumberPropertyId = page.properties["Issue Number"].id;
+    const issueNumberPropertyId = page.properties["id"].id;
+    /*
     const propertyResult = await notion.pages.properties.retrieve({
       page_id: page.id,
       property_id: issueNumberPropertyId,
     });
+    */
     issues.push({
       pageId: page.id,
-      issueNumber: propertyResult.number,
+      issueNumber: page.properties.id.rich_text[0].plain_text.slice(1),
     });
   }
 
   return issues;
 }
 
-let groupId = 77497647;
-let projectID = 51934668;
-
-async function createDummyIssues(count) {
-  let proms = [];
-  for (let i = 0; i < count; i++) {
-    proms.push(
-      fetch(
-        `https://gitlab.com/api/v4/projects/${projectID}/issues?title=Personal%20Issues%20with%20auth${i}&labels=bug`,
-        {
-          headers: {
-            "PRIVATE-TOKEN": process.env.GITLAB_TOKEN,
-          },
-          method: "POST",
-        }
-      )
-    );
-  }
-
-  await Promise.all(proms);
-}
-
 /**
  * Gets issues from a GitLab repository. Pull requests are omitted.
  *
- * https://docs.github.com/en/rest/guides/traversing-with-pagination
- * https://docs.github.com/en/rest/reference/issues
+ * https://docs.gitlab.com/ee/api/rest/#keyset-based-pagination
+ * https://docs.gitlab.com/ee/api/issues.html#list-project-issues
  *
  * @returns {Promise<Array<GitLabIssue>>}
  */
 async function getGitLabIssuesForRepository() {
+  /** @type {GitLabIssue[]} */
   const issues = [];
 
-  // await createDummyIssues(10);
   let page = 1;
   let pageSize = 100;
-  let lastPageSize = 100;
+  let lastPageSize = -1;
 
   do {
     let response = await fetch(
-      `https://gitlab.com/api/v4/projects/${projectID}/issues?scope=all&pagination=keyset&sort=asc&page=${page}&per_page=${pageSize}`,
+      `https://${GITLAB_DOMAIN}/api/v4/projects/${PROJECT_ID}/issues?scope=all&pagination=keyset&sort=asc&page=${page}&per_page=${pageSize}`,
       {
         headers: {
           "PRIVATE-TOKEN": process.env.GITLAB_TOKEN,
@@ -157,15 +143,13 @@ async function getGitLabIssuesForRepository() {
     page++;
   } while (lastPageSize == 100);
 
-  console.log("GITLAB", await response.text());
-
   return issues;
 }
 
 /**
  * Determines which issues already exist in the Notion database.
  *
- * @param {Array < { number: number, title: string, state: "open" | "closed", comment_count: number, url: string } >} issues
+ * @param {Array<GitLabIssue>} issues
  * @returns {{
  *   pagesToCreate: Array<{ number: number, title: string, state: "open" | "closed", comment_count: number, url: string }>;
  *   pagesToUpdate: Array<{ pageId: string, number: number, title: string, state: "open" | "closed", comment_count: number, url: string }>
@@ -201,7 +185,7 @@ async function createPages(pagesToCreate) {
     await Promise.all(
       pagesToCreateBatch.map(issue =>
         notion.pages.create({
-          parent: { database_id: databaseId },
+          parent: { database_id: DATABASE_ID },
           properties: getPropertiesFromIssue(issue),
         })
       )
@@ -239,25 +223,67 @@ async function updatePages(pagesToUpdate) {
 /**
  * Returns the GitLab issue to conform to this database's schema properties.
  *
- * @param {{ number: number, title: string, state: "open" | "closed", comment_count: number, url: string }} issue
+ * @param {GitLabIssue} issue
  */
 function getPropertiesFromIssue(issue) {
-  const { title, number, state, comment_count, url } = issue;
   return {
-    Name: {
-      title: [{ type: "text", text: { content: title } }],
+    id: {
+      rich_text: [
+        {
+          type: "text",
+          text: {
+            content: "#" + issue.iid,
+            link: {
+              url: issue.web_url,
+            },
+          },
+          annotations: {
+            bold: false,
+            italic: false,
+            strikethrough: false,
+            underline: false,
+            code: false,
+            color: "default",
+          },
+          plain_text: "#" + issue.iid,
+          href: issue.web_url,
+        },
+      ],
     },
-    "Issue Number": {
-      number,
+    open: {
+      type: "checkbox",
+      checkbox: issue.state == "opened",
     },
-    State: {
-      select: { name: state },
+    title: {
+      title: [{ type: "text", text: { content: issue.title } }],
     },
-    "Number of Comments": {
-      number: comment_count,
+
+    assignees: {
+      rich_text: [
+        {
+          type: "text",
+          text: {
+            content: issue.assignees.map(a => a.name).join(", "),
+            link: null,
+          },
+          annotations: {
+            bold: false,
+            italic: false,
+            strikethrough: false,
+            underline: false,
+            code: false,
+            color: "default",
+          },
+        },
+      ],
     },
-    "Issue URL": {
-      url,
+
+    created_at: {
+      created_time: issue.created_at,
+    },
+
+    updated_at: {
+      last_edited_time: issue.updated_at,
     },
   };
 }
