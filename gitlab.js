@@ -66,7 +66,88 @@ async function getGitLabLabelsForProject() {
   return await response.json();
 }
 
+//*========================================================================
+// Helpers
+//*========================================================================
+
+/**
+ * Returns the GitLab issue to conform to this database's schema properties.
+ *
+ * @param {GitLabIssue} issue
+ */
+function getPropertiesFromIssue(issue) {
+  let props = {
+    id: {
+      rich_text: [
+        {
+          type: "text",
+          text: {
+            content: "#" + issue.iid,
+            link: {
+              url: issue.web_url,
+            },
+          },
+          annotations: {
+            bold: false,
+            italic: false,
+            strikethrough: false,
+            underline: false,
+            code: false,
+            color: "default",
+          },
+          plain_text: "#" + issue.iid,
+          href: issue.web_url,
+        },
+      ],
+    },
+    open: {
+      type: "checkbox",
+      checkbox: issue.state == "opened",
+    },
+    title: {
+      title: [{ type: "text", text: { content: issue.title } }],
+    },
+
+    assignees: {
+      rich_text: [
+        {
+          type: "text",
+          text: {
+            content: issue.assignees.map(a => a.name).join(", "),
+            link: null,
+          },
+          annotations: {
+            bold: false,
+            italic: false,
+            strikethrough: false,
+            underline: false,
+            code: false,
+            color: "default",
+          },
+        },
+      ],
+    },
+    timespan: {
+      date: {
+        start: issue.created_at,
+      },
+    },
+    last_updated_at: {
+      date: {
+        start: issue.updated_at,
+      },
+    },
+  };
+
+  if (issue.closed_at != null) {
+    props.timespan.date.end = issue.closed_at;
+  }
+
+  return props;
+}
+
 module.exports = {
   getGitLabIssuesForRepository,
   getGitLabLabelsForProject,
+  getPropertiesFromIssue,
 };

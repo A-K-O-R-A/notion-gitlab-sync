@@ -17,6 +17,7 @@ const _ = require("lodash");
 const {
   getGitLabIssuesForRepository,
   getGitLabLabelsForProject,
+  getPropertiesFromIssue,
 } = require("./gitlab.js");
 
 dotenv.config();
@@ -54,6 +55,13 @@ async function syncNotionDatabaseWithGitLab() {
   const issues = await getGitLabIssuesForRepository();
   console.log(`Fetched ${issues.length} issues from GitLab repository.`);
 
+  // Get all labels used in the GitLab projct
+  const labels = await getGitLabLabelsForProject();
+  console.log(`Fetched ${labels.length} lables from GitLab project.`);
+
+  // Update all the label options to reflect the projects tag
+  await updateMultiSelectOptions(labels);
+
   // Group issues into those that need to be created or updated in the Notion database.
   const { pagesToCreate, pagesToUpdate } = getNotionOperations(issues);
 
@@ -82,33 +90,6 @@ async function getIssuesFromNotionDatabase() {
   let db = await notion.databases.retrieve({
     database_id: DATABASE_ID,
   });
-  /*
-  db.properties.tags
-  {
-  id: "WFl%3F",
-  name: "tags",
-  type: "multi_select",
-  multi_select: {
-    options: [
-      {
-        id: "sysU",
-        name: "c",
-        color: "gray",
-      },
-      {
-        id: "k@BI",
-        name: "b",
-        color: "pink",
-      },
-      {
-        id: "fmab",
-        name: "a",
-        color: "red",
-      },
-    ],
-  },
-}
-  */
 
   while (true) {
     const { results, next_cursor } = await notion.databases.query({
@@ -215,82 +196,65 @@ async function updatePages(pagesToUpdate) {
   }
 }
 
-//*========================================================================
-// Helpers
-//*========================================================================
-
+const availableColors = [
+  "blue",
+  "brown",
+  "default",
+  "gray",
+  "green",
+  "orange",
+  "pink",
+  "purple",
+  "red",
+  "yellow",
+];
 /**
- * Returns the GitLab issue to conform to this database's schema properties.
+ * Updates provided pages in Notion.
  *
- * @param {GitLabIssue} issue
+ * https://developers.notion.com/reference/patch-page
+ *
+ * @param {Array < { name: string, color: string } >} labels
  */
-function getPropertiesFromIssue(issue) {
-  let props = {
-    id: {
-      rich_text: [
-        {
-          type: "text",
-          text: {
-            content: "#" + issue.iid,
-            link: {
-              url: issue.web_url,
-            },
-          },
-          annotations: {
-            bold: false,
-            italic: false,
-            strikethrough: false,
-            underline: false,
-            code: false,
-            color: "default",
-          },
-          plain_text: "#" + issue.iid,
-          href: issue.web_url,
+async function updateMultiSelectOptions(labels) {
+  await notion.databases.update({
+    database_id: DATABASE_ID,
+    properties: {
+      tags: {
+        multi_select: {
+          options: labels.map((l, i) => ({
+            name: l.name,
+            color: availableColors[i % availableColors.length],
+          })),
         },
-      ],
-    },
-    open: {
-      type: "checkbox",
-      checkbox: issue.state == "opened",
-    },
-    title: {
-      title: [{ type: "text", text: { content: issue.title } }],
-    },
-
-    assignees: {
-      rich_text: [
-        {
-          type: "text",
-          text: {
-            content: issue.assignees.map(a => a.name).join(", "),
-            link: null,
-          },
-          annotations: {
-            bold: false,
-            italic: false,
-            strikethrough: false,
-            underline: false,
-            code: false,
-            color: "default",
-          },
-        },
-      ],
-    },
-    timespan: {
-      date: {
-        start: issue.created_at,
       },
     },
-    last_updated_at: {
-      date: {
-        start: issue.updated_at,
-      },
-    },
-  };
-
-  if (issue.closed_at != null) {
-    props.timespan.date.end = issue.closed_at;
-  }
-
-  return props;
+  });
 }
+
+/*
+  db.properties.tags
+  {
+  id: "WFl%3F",
+  name: "tags",
+  type: "multi_select",
+  multi_select: {
+    options: [
+      {
+        id: "sysU",
+        name: "c",
+        color: "gray",
+      },
+      {
+        id: "k@BI",
+        name: "b",
+        color: "pink",
+      },
+      {
+        id: "fmab",
+        name: "a",
+        color: "red",
+      },
+    ],
+  },
+}
+  */
