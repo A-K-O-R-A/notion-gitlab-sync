@@ -1,6 +1,7 @@
 /**
  * @typedef {import("./types/gitlab.d.ts").GitLabIssue} GitLabIssue
  * @typedef {import("./types/gitlab.d.ts").GitLabLabel} GitLabLabel
+ * @typedef {import("./types/gitlab.d.ts").GitLabMilestone} GitLabMilestone
  * @typedef {import("./types/notion.d.ts").NotionPage} NotionPage
  */
 
@@ -56,6 +57,26 @@ async function getGitLabIssuesForRepository() {
 async function getGitLabLabelsForProject() {
   let response = await fetch(
     `https://${GITLAB_DOMAIN}/api/v4/projects/${PROJECT_ID}/labels`,
+    {
+      headers: {
+        "PRIVATE-TOKEN": process.env.GITLAB_TOKEN,
+      },
+    }
+  );
+
+  return await response.json();
+}
+
+/**
+ * Gets milestones from the GitLab project
+ *
+ * https://docs.gitlab.com/ee/api/milestones.html
+ *
+ * @returns {Promise<GitLabMilestone>}
+ */
+async function getGitLabMilestonesForProject() {
+  let response = await fetch(
+    `https://${GITLAB_DOMAIN}/api/v4/projects/${PROJECT_ID}/milestones`,
     {
       headers: {
         "PRIVATE-TOKEN": process.env.GITLAB_TOKEN,
@@ -140,6 +161,10 @@ function getPropertiesFromIssue(issue) {
     tags: {
       multi_select: issue.labels.map(l => ({ name: l })),
     },
+    milestones: {
+      multi_select:
+        issue.milestone == null ? [] : [{ name: issue.milestone.title }],
+    },
   };
 
   if (issue.closed_at != null) {
@@ -153,4 +178,5 @@ module.exports = {
   getGitLabIssuesForRepository,
   getGitLabLabelsForProject,
   getPropertiesFromIssue,
+  getGitLabMilestonesForProject,
 };

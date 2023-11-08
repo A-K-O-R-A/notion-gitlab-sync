@@ -8,6 +8,8 @@ https://github.com/makenotion/notion-sdk-js/blob/ba873383d5416405798c66d0b47fed3
 
 /**
  * @typedef {import("./types/gitlab.d.ts").GitLabIssue} GitLabIssue
+ * @typedef {import("./types/gitlab.d.ts").GitLabLabel} GitLabLabel
+ * @typedef {import("./types/gitlab.d.ts").GitLabMilestone} GitLabMilestone
  * @typedef {import("./types/notion.d.ts").NotionPage} NotionPage
  */
 
@@ -18,6 +20,7 @@ const {
   getGitLabIssuesForRepository,
   getGitLabLabelsForProject,
   getPropertiesFromIssue,
+  getGitLabMilestonesForProject,
 } = require("./gitlab.js");
 
 dotenv.config();
@@ -59,8 +62,12 @@ async function syncNotionDatabaseWithGitLab() {
   const labels = await getGitLabLabelsForProject();
   console.log(`Fetched ${labels.length} lables from GitLab project.`);
 
+  // Get all labels used in the GitLab projct
+  const milestones = await getGitLabMilestonesForProject();
+  console.log(`Fetched ${milestones.length} milestones from GitLab project.`);
+
   // Update all the label options to reflect the projects tag
-  await updateMultiSelectOptions(labels);
+  await updateMultiSelectOptions(labels, milestones);
 
   // Group issues into those that need to be created or updated in the Notion database.
   const { pagesToCreate, pagesToUpdate } = getNotionOperations(issues);
@@ -209,9 +216,10 @@ const availableColors = [
  *
  * https://developers.notion.com/reference/patch-page
  *
- * @param {Array < { name: string, color: string } >} labels
+ * @param {Array<GitLabLabel>} labels
+ * @param {Array<GitLabMilestone>} milestones
  */
-async function updateMultiSelectOptions(labels) {
+async function updateMultiSelectOptions(labels, milestones) {
   await notion.databases.update({
     database_id: DATABASE_ID,
     properties: {
@@ -219,6 +227,14 @@ async function updateMultiSelectOptions(labels) {
         multi_select: {
           options: labels.map((l, i) => ({
             name: l.name,
+            color: availableColors[i % availableColors.length],
+          })),
+        },
+      },
+      milestones: {
+        multi_select: {
+          options: milestones.map((m, i) => ({
+            name: m.title,
             color: availableColors[i % availableColors.length],
           })),
         },

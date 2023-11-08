@@ -10,7 +10,7 @@ export interface GitLabIssue {
   closed_at: null;
   closed_by: null;
   labels: string[];
-  milestone: null;
+  milestone: GitLabMilestone | null;
   assignees: Author[];
   author: Author;
   type: Type;
