@@ -13,8 +13,11 @@ https://github.com/makenotion/notion-sdk-js/blob/ba873383d5416405798c66d0b47fed3
 
 const { Client } = require("@notionhq/client");
 const dotenv = require("dotenv");
-const { default: fetch } = require("node-fetch");
 const _ = require("lodash");
+const {
+  getGitLabIssuesForRepository,
+  getGitLabLabelsForProject,
+} = require("./gitlab.js");
 
 dotenv.config();
 
@@ -22,10 +25,6 @@ const notion = new Client({ auth: process.env.NOTION_KEY });
 
 const DATABASE_ID = process.env.NOTION_DATABASE_ID;
 const OPERATION_BATCH_SIZE = 10;
-
-const GROUP_ID = 77497647;
-const PROJECT_ID = 51934668;
-const GITLAB_DOMAIN = "gitlab.com";
 
 /**
  * Local map to store  GitLab issue ID to its Notion pageId.
@@ -79,6 +78,38 @@ async function getIssuesFromNotionDatabase() {
   /** @type {NotionPage[]} */
   const pages = [];
   let cursor = undefined;
+
+  let db = await notion.databases.retrieve({
+    database_id: DATABASE_ID,
+  });
+  /*
+  db.properties.tags
+  {
+  id: "WFl%3F",
+  name: "tags",
+  type: "multi_select",
+  multi_select: {
+    options: [
+      {
+        id: "sysU",
+        name: "c",
+        color: "gray",
+      },
+      {
+        id: "k@BI",
+        name: "b",
+        color: "pink",
+      },
+      {
+        id: "fmab",
+        name: "a",
+        color: "red",
+      },
+    ],
+  },
+}
+  */
+
   while (true) {
     const { results, next_cursor } = await notion.databases.query({
       database_id: DATABASE_ID,
@@ -101,47 +132,15 @@ async function getIssuesFromNotionDatabase() {
       property_id: issueNumberPropertyId,
     });
     */
-    issues.push({
-      pageId: page.id,
-      issueNumber: page.properties.id.rich_text[0].plain_text.slice(1),
-    });
+    try {
+      issues.push({
+        pageId: page.id,
+        issueNumber: page.properties.id.rich_text[0].plain_text.slice(1),
+      });
+    } catch (e) {
+      console.log("oops");
+    }
   }
-
-  return issues;
-}
-
-/**
- * Gets issues from a GitLab repository. Pull requests are omitted.
- *
- * https://docs.gitlab.com/ee/api/rest/#keyset-based-pagination
- * https://docs.gitlab.com/ee/api/issues.html#list-project-issues
- *
- * @returns {Promise<Array<GitLabIssue>>}
- */
-async function getGitLabIssuesForRepository() {
-  /** @type {GitLabIssue[]} */
-  const issues = [];
-
-  let page = 1;
-  let pageSize = 100;
-  let lastPageSize = -1;
-
-  do {
-    let response = await fetch(
-      `https://${GITLAB_DOMAIN}/api/v4/projects/${PROJECT_ID}/issues?scope=all&pagination=keyset&sort=asc&page=${page}&per_page=${pageSize}`,
-      {
-        headers: {
-          "PRIVATE-TOKEN": process.env.GITLAB_TOKEN,
-        },
-      }
-    );
-    let data = await response.json();
-    issues.push(...data);
-
-    // For pagination
-    lastPageSize = data.length;
-    page++;
-  } while (lastPageSize == 100);
 
   return issues;
 }
@@ -159,7 +158,7 @@ function getNotionOperations(issues) {
   const pagesToCreate = [];
   const pagesToUpdate = [];
   for (const issue of issues) {
-    const pageId = gitLabIssuesIdToNotionPageId[issue.number];
+    const pageId = gitLabIssuesIdToNotionPageId[issue.iid];
     if (pageId) {
       pagesToUpdate.push({
         ...issue,
@@ -226,7 +225,7 @@ async function updatePages(pagesToUpdate) {
  * @param {GitLabIssue} issue
  */
 function getPropertiesFromIssue(issue) {
-  return {
+  let props = {
     id: {
       rich_text: [
         {
@@ -277,13 +276,21 @@ function getPropertiesFromIssue(issue) {
         },
       ],
     },
-
-    created_at: {
-      created_time: issue.created_at,
+    timespan: {
+      date: {
+        start: issue.created_at,
+      },
     },
-
-    updated_at: {
-      last_edited_time: issue.updated_at,
+    last_updated_at: {
+      date: {
+        start: issue.updated_at,
+      },
     },
   };
+
+  if (issue.closed_at != null) {
+    props.timespan.date.end = issue.closed_at;
+  }
+
+  return props;
 }
