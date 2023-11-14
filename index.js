@@ -135,8 +135,8 @@ async function getIssuesFromNotionDatabase() {
  *
  * @param {Array<GitLabIssue>} issues
  * @returns {{
- *   pagesToCreate: Array<{ number: number, title: string, state: "open" | "closed", comment_count: number, url: string }>;
- *   pagesToUpdate: Array<{ pageId: string, number: number, title: string, state: "open" | "closed", comment_count: number, url: string }>
+ *   pagesToCreate: Array<GitLabIssue>;
+ *   pagesToUpdate: Array<{ pageId: string } & GitLabIssue>
  * }}
  */
 function getNotionOperations(issues) {
@@ -161,7 +161,7 @@ function getNotionOperations(issues) {
  *
  * https://developers.notion.com/reference/post-page
  *
- * @param {Array < { number: number, title: string, state: "open" | "closed", comment_count: number, url: string } >} pagesToCreate
+ * @param {Array <GitLabIssue>} pagesToCreate
  */
 async function createPages(pagesToCreate) {
   const pagesToCreateChunks = _.chunk(pagesToCreate, OPERATION_BATCH_SIZE);
@@ -183,7 +183,7 @@ async function createPages(pagesToCreate) {
  *
  * https://developers.notion.com/reference/patch-page
  *
- * @param {Array < { pageId: string, number: number, title: string, state: "open" | "closed", comment_count: number, url: string } >} pagesToUpdate
+ * @param {Array <GitLabIssue>} pagesToUpdate
  */
 async function updatePages(pagesToUpdate) {
   const pagesToUpdateChunks = _.chunk(pagesToUpdate, OPERATION_BATCH_SIZE);
@@ -200,6 +200,11 @@ async function updatePages(pagesToUpdate) {
   }
 }
 
+/*
+A list of the available colors for notion multi select options
+
+https://developers.notion.com/reference/property-object#multi-select
+*/
 const availableColors = [
   "blue",
   "brown",
@@ -212,6 +217,7 @@ const availableColors = [
   "red",
   "yellow",
 ];
+
 /**
  * Updates provided pages in Notion.
  *
@@ -238,6 +244,7 @@ async function updateMultiSelectOptions(labels, milestones) {
     },
   });
 
+  // Reinsert all the labels
   await notion.databases.update({
     database_id: DATABASE_ID,
     properties: {
@@ -260,31 +267,3 @@ async function updateMultiSelectOptions(labels, milestones) {
     },
   });
 }
-
-/*
-  db.properties.tags
-  {
-  id: "WFl%3F",
-  name: "tags",
-  type: "multi_select",
-  multi_select: {
-    options: [
-      {
-        id: "sysU",
-        name: "c",
-        color: "gray",
-      },
-      {
-        id: "k@BI",
-        name: "b",
-        color: "pink",
-      },
-      {
-        id: "fmab",
-        name: "a",
-        color: "red",
-      },
-    ],
-  },
-}
-  */
