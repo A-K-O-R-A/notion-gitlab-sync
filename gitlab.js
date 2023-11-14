@@ -5,7 +5,6 @@
  * @typedef {import("./types/notion.d.ts").NotionPage} NotionPage
  */
 
-const GROUP_ID = process.env.GITLAB_GROUP_ID;
 const PROJECT_ID = process.env.GITLAB_PROJECT_ID;
 const GITLAB_DOMAIN = process.env.GITLAB_DOMAIN;
 const GITLAB_TOKEN = process.env.GITLAB_TOKEN;
@@ -40,10 +39,11 @@ async function getGitLabIssuesForRepository() {
     let data = await response.json();
     issues.push(...data);
 
-    // For pagination
     lastPageSize = data.length;
     page++;
-  } while (lastPageSize == 100);
+
+    // Check if the received page was full
+  } while (lastPageSize == pageSize);
 
   return issues;
 }
@@ -105,6 +105,7 @@ function getPropertiesFromIssue(issue) {
           type: "text",
           text: {
             content: "#" + issue.iid,
+            // Make the issue ID tag clickable
             link: {
               url: issue.web_url,
             },
@@ -168,6 +169,7 @@ function getPropertiesFromIssue(issue) {
     },
   };
 
+  // Only set the timespan end date if the issue was closed
   if (issue.closed_at != null) {
     props.timespan.date.end = issue.closed_at;
   }

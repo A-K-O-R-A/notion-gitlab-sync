@@ -63,7 +63,7 @@ async function syncNotionDatabaseWithGitLab() {
   const labels = await getGitLabLabelsForProject();
   console.log(`Fetched ${labels.length} lables from GitLab project.`);
 
-  // Get all labels used in the GitLab projct
+  // Get all milestones used in the GitLab projct
   const milestones = await getGitLabMilestonesForProject();
   console.log(`Fetched ${milestones.length} milestones from GitLab project.`);
 
@@ -110,21 +110,10 @@ async function getIssuesFromNotionDatabase() {
 
   const issues = [];
   for (const page of pages) {
-    const issueNumberPropertyId = page.properties["id"].id;
-    /*
-    const propertyResult = await notion.pages.properties.retrieve({
-      page_id: page.id,
-      property_id: issueNumberPropertyId,
+    issues.push({
+      pageId: page.id,
+      issueNumber: page.properties.id.rich_text[0].plain_text.slice(1),
     });
-    */
-    try {
-      issues.push({
-        pageId: page.id,
-        issueNumber: page.properties.id.rich_text[0].plain_text.slice(1),
-      });
-    } catch (e) {
-      console.log("oops");
-    }
   }
 
   return issues;
@@ -201,9 +190,9 @@ async function updatePages(pagesToUpdate) {
 }
 
 /*
-A list of the available colors for notion multi select options
-
-https://developers.notion.com/reference/property-object#multi-select
+ * A list of the available colors for notion multi select options
+ *
+ * https://developers.notion.com/reference/property-object#multi-select
 */
 const availableColors = [
   "blue",
@@ -219,7 +208,7 @@ const availableColors = [
 ];
 
 /**
- * Updates provided pages in Notion.
+ * Updates all the multi-select options to match the labels and milestones created on GitLab
  *
  * https://developers.notion.com/reference/patch-page
  *
