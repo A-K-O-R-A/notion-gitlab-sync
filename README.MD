@@ -26,7 +26,7 @@ To run this script you will need to create a database in notion if you don't hav
 
 > NOTE: The order is not important but the casing is
 
-For the folowing steps make sure that you open the database page not the page where the database is inlined. If the database is inlined in curent page you can hover with your mouse over the table and then click on the 3 dots that appear on the right side of the table name and click "Open as full page"
+For the following steps make sure that you open the database page not the page where the database is inlined. If the database is inlined in curent page you can hover with your mouse over the table and then click on the 3 dots that appear on the right side of the table name and click "Open as full page"
 ![Screenshot](./assets/Screenshot_20241006_122851.png)
 
 Next add your integration to the database, this can be done throught the menu in the top right corner of the database view.
