@@ -2,7 +2,7 @@
 This projects mirrors the issues from a gitlab project to a notion database. Every time the script is run it will fetch all issues, milestones and labels from the project and insert or update ( depending on which one is necessary ) entries in the notion database.
 
 ## Setup
-## Notion 
+## Notion
 
 ### Create an integration
 Go to https://www.notion.so/my-integrations and create an integration that has the "Read content", "Update content" and "Insert content" capabilities. Copy it's secret and add it to your `.env` file on a new line.
@@ -19,12 +19,14 @@ To run this script you will need to create a database in notion if you don't hav
 | open | checkbox |
 | title | title |
 | assignees | text |
-| timespan | date | 
+| timespan | date |
 | last_updated_at | date |
 | tags | multi_select |
 | milestones | multi_select |
 
 > NOTE: The order is not important but the casing is
+
+For the folowing steps make sure that you open the database page not the page where the database is inlined. If the database is inlined in curent page you can hover with your mouse over the table and then click on the 3 dots that appear on the right side of the table name and click "Open as full page"
 
 Next add your integration to the database, this can be done throught the menu in the top right corner of the database view.
 ![Screenshot](./assets/Screenshot_20231111_122710.png)
@@ -54,7 +56,7 @@ The gitlab Project ID can be found on its overview page ( https://git.example.co
 
 ### GitLab domain
 
-This script is designed to work with custom GitLab instances so you also need to add your domain to the `.evn` file.
+This script is designed to work with custom GitLab instances so you also need to add your domain to the `.enn` file.
 
 `GITLAB_DOMAIN=<git.example.com>`
 
@@ -80,6 +82,6 @@ node index.js
 ```
 
 ## Troubleshooting
-If the script throws an error most of the time the easiest solution is to just delete all entries in the table on notion. 
+If the script throws an error most of the time the easiest solution is to just delete all entries in the table on notion.
 
 If the error still persist the second most common issue is caused by all tags or milestones still remaining in notion, to fix this you can edit the notion database by clicking the three dots on the top right corner of the view. Click on "Properties" and then first select "milestones" and remove all the options, then do the same thing for the "tags" property.
